@@ -1,7 +1,6 @@
 import requests
 from collections import defaultdict
-import time
-import csv
+import pandas as pd
 
 class StockCryptoDataFetcher:
     def __init__(self, stock_api_key):
@@ -51,24 +50,18 @@ class StockCryptoDataFetcher:
         else:
             raise Exception(f"Error fetching cryptocurrency data: {response.status_code}")
 
-    def export_to_csv(self, data, filename):
-        """Exports the provided data to a CSV file."""
-        with open(filename, mode='w', newline='') as file:
-            writer = csv.writer(file)
-            if isinstance(data, dict):
-                # Handle stock data (which is typically a nested dictionary)
-                # Write the header
-                writer.writerow(['Date', 'Open', 'High', 'Low', 'Close', 'Volume'])
-                for date, values in data.get('Time Series (Daily)', {}).items():
-                    writer.writerow([date, values['1. open'], values['2. high'], values['3. low'], values['4. close'], values['5. volume']])
-            elif isinstance(data, list):
-                # Handle cryptocurrency data (which is usually simpler)
-                writer.writerow(['Crypto ID', 'Price (USD)'])
-                for crypto_id, values in data.items():
-                    writer.writerow([crypto_id, values['usd']])
+    def display_stock_data(self, data):
+        """Displays stock data in a tabular format using pandas."""
+        if 'Time Series (Daily)' in data:
+            stock_data = data['Time Series (Daily)']
+            df = pd.DataFrame.from_dict(stock_data, orient='index')
+            df.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+            df.index.name = 'Date'
+            df = df.astype({'Open': 'float', 'High': 'float', 'Low': 'float', 'Close': 'float', 'Volume': 'int'})
+            print(df)
 
 if __name__ == "__main__":
-    api_key = '72358fkpa1d660hr'
+    api_key = '72358fkpa1d660hr'  # Make sure to use your own API key
     fetcher = StockCryptoDataFetcher(api_key)
     
     stock_symbol = 'AAPL'  # Example: Apple Inc.
@@ -77,8 +70,7 @@ if __name__ == "__main__":
     try:
         stock_data = fetcher.fetch_stock_data(stock_symbol)
         print("Stock Data:")
-        print(stock_data)
-        fetcher.export_to_csv(stock_data, 'stock_data.csv')  # Export stock data to CSV
+        fetcher.display_stock_data(stock_data)  # Display stock data in tabular form
     except Exception as e:
         print(e)
 
@@ -86,6 +78,5 @@ if __name__ == "__main__":
         crypto_data = fetcher.fetch_crypto_data(crypto_id)
         print("Cryptocurrency Data:")
         print(crypto_data)
-        fetcher.export_to_csv(crypto_data, 'crypto_data.csv')  # Export crypto data to CSV
     except Exception as e:
         print(e)
