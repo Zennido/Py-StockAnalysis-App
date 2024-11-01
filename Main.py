@@ -64,19 +64,25 @@ if __name__ == "__main__":
     api_key = '72358fkpa1d660hr'  # Make sure to use your own API key
     fetcher = StockCryptoDataFetcher(api_key)
     
-    stock_symbol = 'AAPL'  # Example: Apple Inc.
-    crypto_id = 'bitcoin'   # Example: Bitcoin
+    # Top 5 stock symbols
+    stock_symbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']
+    # Top 5 cryptocurrency IDs
+    crypto_ids = ['bitcoin', 'ethereum', 'ripple', 'cardano', 'solana']
 
-    try:
-        stock_data = fetcher.fetch_stock_data(stock_symbol)
-        print("Stock Data:")
-        fetcher.display_stock_data(stock_data)  # Display stock data in tabular form
-    except Exception as e:
-        print(e)
+    # Fetch and display stock data
+    for symbol in stock_symbols:
+        try:
+            stock_data = fetcher.fetch_stock_data(symbol)
+            print(f"Stock Data for {symbol}:")
+            fetcher.display_stock_data(stock_data)  # Display stock data in tabular form
+        except Exception as e:
+            print(e)
 
-    try:
-        crypto_data = fetcher.fetch_crypto_data(crypto_id)
-        print("Cryptocurrency Data:")
-        print(crypto_data)
-    except Exception as e:
-        print(e)
+    # Fetch and display cryptocurrency data
+    for crypto_id in crypto_ids:
+        try:
+            crypto_data = fetcher.fetch_crypto_data(crypto_id)
+            print(f"Cryptocurrency Data for {crypto_id}:")
+            print(crypto_data)
+        except Exception as e:
+            print(e)
