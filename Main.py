@@ -86,4 +86,3 @@ if __name__ == "__main__":
             print(crypto_data)
         except Exception as e:
             print(e)
- 
