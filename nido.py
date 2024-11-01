@@ -3,8 +3,12 @@ import requests
 from collections import defaultdict
 import pandas as pd
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QTextEdit
+    QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton, QTextEdit
 )
+from PyQt5.QtCore import Qt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 
 class StockCryptoDataFetcher:
     def __init__(self, stock_api_key):
@@ -52,6 +56,51 @@ class StockCryptoDataFetcher:
         else:
             raise Exception(f"Error fetching cryptocurrency data: {response.status_code}")
 
+    def fetch_top_cryptos(self, crypto_ids):
+        prices = {}
+        for crypto_id in crypto_ids:
+            try:
+                data = self.fetch_crypto_data(crypto_id)
+                prices[crypto_id] = data[crypto_id]['usd']
+            except Exception as e:
+                print(f"Error fetching data for {crypto_id}: {e}")
+        return prices
+
+class DonutChart(QWidget):
+    def __init__(self, prices):
+        super().__init__()
+        self.initUI(prices)
+
+    def initUI(self, prices):
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+
+        # Create a figure for the donut chart
+        self.figure = Figure()
+        self.canvas = FigureCanvas(self.figure)
+        layout.addWidget(self.canvas)
+
+        # Create a donut chart
+        self.plot_donut_chart(prices)
+
+    def plot_donut_chart(self, prices):
+        labels = prices.keys()
+        sizes = prices.values()
+
+        # Create a pie chart
+        ax = self.figure.add_subplot(111)
+        wedges, texts, autotexts = ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
+
+        # Draw a circle at the center to make it a donut chart
+        centre_circle = plt.Circle((0, 0), 0.70, fc='white')
+        fig = plt.gcf()
+        fig.gca().add_artist(centre_circle)
+
+        # Equal aspect ratio ensures that pie is drawn as a circle.
+        ax.axis('equal')
+        plt.title('Top 5 Cryptocurrencies by Price')
+        self.canvas.draw()
+
 class App(QWidget):
     def __init__(self):
         super().__init__()
@@ -87,6 +136,11 @@ class App(QWidget):
         self.crypto_output = QTextEdit(self)
         self.crypto_output.setReadOnly(True)
         layout.addWidget(self.crypto_output)
+
+        # Show Donut Chart
+        self.chart_button = QPushButton('Show Top 5 Crypto Donut Chart', self)
+        self.chart_button.clicked.connect(self.show_donut_chart)
+        layout.addWidget(self.chart_button)
 
         self.setLayout(layout)
         
@@ -141,9 +195,20 @@ class App(QWidget):
         except Exception as e:
             self.crypto_output.setText(str(e))
 
+    def show_donut_chart(self):
+        top_cryptos = ['bitcoin', 'ethereum', 'ripple', 'cardano', 'solana']
+        prices = self.fetcher.fetch_top_cryptos(top_cryptos)
+        if prices:
+            self.donut_chart = DonutChart(prices)
+            self.donut_chart.resize(400, 300)
+            self.donut_chart.setWindowTitle('Top 5 Cryptocurrencies')
+            self.donut_chart.show()
+        else:
+            self.crypto_output.setText("Failed to fetch cryptocurrency data.")
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     ex = App()
-    ex.resize(600, 400)
+    ex.resize(600, 600)
     ex.show()
     sys.exit(app.exec_())
