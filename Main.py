@@ -8,9 +8,37 @@ from sklearn.linear_model import LinearRegression
 # Predefined list of popular stocks
 STOCK_OPTIONS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NFLX', 'NVDA']
 
+# Linked List Implementation for Stock Data
+class StockNode:
+    def __init__(self, symbol, data):
+        self.symbol = symbol  # Stock symbol
+        self.data = data  # Stock data (e.g., pandas DataFrame)
+        self.next = None  # Link to the next node
+
+class StockLinkedList:
+    def __init__(self):
+        self.head = None  # Head of the linked list
+
+    def add_stock(self, symbol, data):
+        new_node = StockNode(symbol, data)
+        if not self.head:
+            self.head = new_node
+        else:
+            current = self.head
+            while current.next:
+                current = current.next
+            current.next = new_node
+
+    def find_stock(self, symbol):
+        current = self.head
+        while current:
+            if current.symbol == symbol:
+                return current.data
+            current = current.next
+        return None  # Stock not found
+
 # Function to fetch stock data using yfinance
 def fetch_stock_data(symbol):
-    # Download historical stock data for the given symbol
     stock_data = yf.download(symbol, period="5y")  # Fetch 5 years of data
     if not stock_data.empty:
         return stock_data
@@ -59,9 +87,21 @@ def on_button_click():
     symbol1 = stock_symbol1.get()  # Get the first stock symbol from dropdown
     symbol2 = stock_symbol2.get()  # Get the second stock symbol from dropdown
     if symbol1 and symbol2:
-        df1 = fetch_stock_data(symbol1)
-        df2 = fetch_stock_data(symbol2)
+        # Fetch stock data from the linked list or fetch and store if not found
+        df1 = stock_list.find_stock(symbol1)
+        df2 = stock_list.find_stock(symbol2)
         
+        # If data for the stock is not found in the linked list, fetch it and store
+        if df1 is None:
+            df1 = fetch_stock_data(symbol1)
+            if df1 is not None:
+                stock_list.add_stock(symbol1, df1)
+        
+        if df2 is None:
+            df2 = fetch_stock_data(symbol2)
+            if df2 is not None:
+                stock_list.add_stock(symbol2, df2)
+
         if df1 is not None and df2 is not None:
             # Predict stock price for the next day for both stocks
             predicted_price1 = predict_stock_price(df1)
@@ -102,6 +142,9 @@ fetch_button.pack(pady=10)
 # Label to display the predicted prices
 result_label = ctk.CTkLabel(app, text="Predicted prices for the next day will appear here.")
 result_label.pack(pady=20)
+
+# Initialize the linked list for stock data
+stock_list = StockLinkedList()
 
 # Run the GUI
 app.mainloop()
