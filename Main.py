@@ -1,88 +1,107 @@
-import requests
-from collections import defaultdict
+import yfinance as yf
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import customtkinter as ctk
 import pandas as pd
+from sklearn.linear_model import LinearRegression
 
-class StockCryptoDataFetcher:
-    def __init__(self, stock_api_key):
-        self.stock_api_key = stock_api_key
-        self.stock_cache = {}
-        self.crypto_cache = defaultdict(dict)
+# Predefined list of popular stocks
+STOCK_OPTIONS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NFLX', 'NVDA']
 
-    def fetch_stock_data(self, symbol):
-        if symbol in self.stock_cache:
-            print("Fetching stock data from cache.")
-            return self.stock_cache[symbol]
-        
-        base_url = 'https://www.alphavantage.co/query'
-        params = {
-            'function': 'TIME_SERIES_DAILY',
-            'symbol': symbol,
-            'apikey': self.stock_api_key,
-            'outputsize': 'compact'
-        }
+# Function to fetch stock data using yfinance
+def fetch_stock_data(symbol):
+    # Download historical stock data for the given symbol
+    stock_data = yf.download(symbol, period="5y")  # Fetch 5 years of data
+    if not stock_data.empty:
+        return stock_data
+    else:
+        print(f"Error fetching data for {symbol}!")
+        return None
 
-        response = requests.get(base_url, params=params)
-        
-        if response.status_code == 200:
-            data = response.json()
-            self.stock_cache[symbol] = data  # Cache the fetched data
-            return data
-        else:
-            raise Exception(f"Error fetching stock data: {response.status_code}")
-
-    def fetch_crypto_data(self, crypto_id):
-        if crypto_id in self.crypto_cache:
-            print("Fetching cryptocurrency data from cache.")
-            return self.crypto_cache[crypto_id]
-
-        base_url = 'https://api.coingecko.com/api/v3/simple/price'
-        params = {
-            'ids': crypto_id,
-            'vs_currencies': 'usd'
-        }
-
-        response = requests.get(base_url, params=params)
-        
-        if response.status_code == 200:
-            data = response.json()
-            self.crypto_cache[crypto_id] = data  # Cache the fetched data
-            return data
-        else:
-            raise Exception(f"Error fetching cryptocurrency data: {response.status_code}")
-
-    def display_stock_data(self, data):
-        """Displays stock data in a tabular format using pandas."""
-        if 'Time Series (Daily)' in data:
-            stock_data = data['Time Series (Daily)']
-            df = pd.DataFrame.from_dict(stock_data, orient='index')
-            df.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
-            df.index.name = 'Date'
-            df = df.astype({'Open': 'float', 'High': 'float', 'Low': 'float', 'Close': 'float', 'Volume': 'int'})
-            print(df)
-
-if __name__ == "__main__":
-    api_key = '72358fkpa1d660hr'  # Make sure to use your own API key
-    fetcher = StockCryptoDataFetcher(api_key)
+# Predictive Analysis (Linear Regression)
+def predict_stock_price(df):
+    df_copy = df[['Close']].copy()
+    df_copy['date'] = (df_copy.index - df_copy.index.min()).days
     
-    # Top 5 stock symbols
-    stock_symbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']
-    # Top 5 cryptocurrency IDs
-    crypto_ids = ['bitcoin', 'ethereum', 'ripple', 'cardano', 'solana']
+    model = LinearRegression()
+    model.fit(df_copy[['date']], df_copy[['Close']])
+    
+    next_day = [[df_copy['date'].max() + 1]]
+    prediction = model.predict(next_day)
+    
+    return prediction[0][0]
 
-    # Fetch and display stock data
-    for symbol in stock_symbols:
-        try:
-            stock_data = fetcher.fetch_stock_data(symbol)
-            print(f"Stock Data for {symbol}:")
-            fetcher.display_stock_data(stock_data)  # Display stock data in tabular form
-        except Exception as e:
-            print(e)
+# Visualization function to compare two stocks
+def visualize_data(df1, df2, symbol1, symbol2):
+    # Create a figure
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    # Plot the first stock
+    ax.plot(df1.index, df1['Close'], label=f'{symbol1} Close Price', color='blue')
+    
+    # Plot the second stock
+    ax.plot(df2.index, df2['Close'], label=f'{symbol2} Close Price', color='orange')
+    
+    ax.set_title(f'Comparison of {symbol1} and {symbol2} Stock Prices')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Price (USD)')
+    ax.legend()
+    ax.grid(True)
+    fig.autofmt_xdate(rotation=45)
+    
+    # Embed the plot into the GUI using FigureCanvasTkAgg
+    canvas = FigureCanvasTkAgg(fig, master=app)
+    canvas.draw()
+    canvas.get_tk_widget().pack(pady=20)
 
-    # Fetch and display cryptocurrency data
-    for crypto_id in crypto_ids:
-        try:
-            crypto_data = fetcher.fetch_crypto_data(crypto_id)
-            print(f"Cryptocurrency Data for {crypto_id}:")
-            print(crypto_data)
-        except Exception as e:
-            print(e)
+# Function to handle the button click event in GUI
+def on_button_click():
+    symbol1 = stock_symbol1.get()  # Get the first stock symbol from dropdown
+    symbol2 = stock_symbol2.get()  # Get the second stock symbol from dropdown
+    if symbol1 and symbol2:
+        df1 = fetch_stock_data(symbol1)
+        df2 = fetch_stock_data(symbol2)
+        
+        if df1 is not None and df2 is not None:
+            # Predict stock price for the next day for both stocks
+            predicted_price1 = predict_stock_price(df1)
+            predicted_price2 = predict_stock_price(df2)
+            result_label.configure(
+                text=f"Predicted price for {symbol1}: ${predicted_price1:.2f}\n"
+                     f"Predicted price for {symbol2}: ${predicted_price2:.2f}")
+            
+            # Clear previous plots if any
+            for widget in app.winfo_children():
+                if isinstance(widget, FigureCanvasTkAgg):
+                    widget.get_tk_widget().destroy()
+            
+            # Visualize the data for both stocks in the app
+            visualize_data(df1, df2, symbol1, symbol2)
+
+# GUI setup using customtkinter
+app = ctk.CTk()
+
+# Set the title and dimensions of the window
+app.title("Stock Price Comparison")
+app.geometry("600x600")
+
+# Dropdown for first stock symbol
+stock_symbol1 = ctk.CTkOptionMenu(app, values=STOCK_OPTIONS)
+stock_symbol1.set(STOCK_OPTIONS[0])  # Set default selection
+stock_symbol1.pack(pady=20)
+
+# Dropdown for second stock symbol
+stock_symbol2 = ctk.CTkOptionMenu(app, values=STOCK_OPTIONS)
+stock_symbol2.set(STOCK_OPTIONS[1])  # Set default selection
+stock_symbol2.pack(pady=20)
+
+# Button to fetch data and perform analysis
+fetch_button = ctk.CTkButton(app, text="Fetch Data and Compare", command=on_button_click)
+fetch_button.pack(pady=10)
+
+# Label to display the predicted prices
+result_label = ctk.CTkLabel(app, text="Predicted prices for the next day will appear here.")
+result_label.pack(pady=20)
+
+# Run the GUI
+app.mainloop()
